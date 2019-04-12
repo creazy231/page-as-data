@@ -1,28 +1,23 @@
 <?php
 namespace Grav\Plugin;
-
 use Grav\Common\Plugin;
-
 class pageAsDataPlugin extends Plugin
 {
-    public static function getSubscribedEvents()
-    {
+    public static function getSubscribedEvents() {
         return [
             'onPluginsInitialized' => ['onPluginsInitialized', 0],
         ];
     }
-
     public function onPluginsInitialized()
     {
         // hijack output so we can deliver as a different format
         // if this value isset
         if (isset($_GET['return-as']) && in_array($_GET['return-as'], array('json', 'xml', 'yaml'))) {
             $this->enable([
-                'onPageInitialized' => ['deliverFormatAs', 0]
-            ]);
+                    'onPageInitialized' => ['deliverFormatAs', 0]
+                ]);
         }
     }
-
     public function deliverFormatAs()
     {
         /**
@@ -34,37 +29,53 @@ class pageAsDataPlugin extends Plugin
         $pageArray = $page->toArray();
         $children = array();
         foreach ($collection as $item) {
-            $children[] = $item->toArray();
+          $children[] = $item->toArray();
         }
         $pageArray['children'] = $children;
+        // Other informations about page
+        $pageArray['slug'] = $page->slug();
+        $pageArray['permalink'] = $page->permalink();
+        $pageArray['route'] = $page->route();
+        $pageArray['raw_route'] = $page->rawRoute();
+        $pageArray['route_canonical'] = $page->routeCanonical();
+        $pageArray['path'] = $page->path();
+        $pageArray['folder'] = $page->folder();
+        // Get all medias
+        $allmedias = $page->media()->all();
+        $medias = array();
+        foreach ($allmedias as $item) {
+          $medias[] = $item->toArray();
+        }
+        $pageArray['medias'] = $medias;
+        
         switch ($format) {
             case 'json':
-                header('Content-Type: application/json');
-                echo json_encode($pageArray);
-                break;
+              header("Content-Type: application/json");
+              echo json_encode($pageArray);
+            break;
             case 'yaml':
-                header('Content-Type: application/yaml');
+                header("Content-Type: application/yaml");
                 echo $page->toYaml();
-                break;
+            break;
             case 'xml':
-                header('Content-Type: application/xml');
-                $array2XmlConverter  = new PageAsDataXmlDomConstructor('1.0', 'utf-8');
-                $array2XmlConverter->xmlStandalone   = TRUE;
-                $array2XmlConverter->formatOutput    = TRUE;
-                try {
-                    $array2XmlConverter->fromMixed( array('page' => $pageArray) );
-                    $array2XmlConverter->normalizeDocument ();
-                    $xml = $array2XmlConverter->saveXML();
-                    print $xml;
-                } catch ( Exception $ex )  {
-                    return $ex;
-                }
-                break;
+              header("Content-Type: application/xml");
+              $array2XmlConverter  = new PageAsDataXmlDomConstructor('1.0', 'utf-8');
+              $array2XmlConverter->xmlStandalone   = TRUE;
+              $array2XmlConverter->formatOutput    = TRUE;
+              try {
+                $array2XmlConverter->fromMixed( array('page' => $pageArray) );
+                $array2XmlConverter->normalizeDocument ();
+                $xml = $array2XmlConverter->saveXML();
+                print $xml;
+              }
+              catch( Exception $ex )  {
+                return $ex;
+              }
+            break;
         }
         exit();
     }
 }
-
 /**
  * Converts an array to XML
  *  http://www.devexp.eu/2009/04/11/php-domdocument-convert-array-to-xml/
@@ -78,31 +89,29 @@ class pageAsDataPlugin extends Plugin
  *
  * @author Toni Van de Voorde
  */
-class PageAsDataXmlDomConstructor extends \DOMDocument
-{
-    public function fromMixed($mixed, \DOMElement $domElement = null)
-    {
-        $domElement = is_null($domElement) ? $this : $domElement;
-        if (is_array($mixed)) {
-            foreach ($mixed as $index => $mixedElement) {
-                if (is_int($index)) {
-                    if ($index === 0) {
-                        $node = $domElement;
-                    }
-                    else {
-                        $node = $this->createElement($domElement->tagName);
-                        $domElement->parentNode->appendChild($node);
-                    }
-                }
-                else {
-                    $node = $this->createElement($index);
-                    $domElement->appendChild($node);
-                }
-                $this->fromMixed($mixedElement, $node);
-            }
+class PageAsDataXmlDomConstructor extends \DOMDocument {
+  public function fromMixed($mixed, \DOMElement $domElement = null) {
+    $domElement = is_null($domElement) ? $this : $domElement;
+    if (is_array($mixed)) {
+      foreach ($mixed as $index => $mixedElement) {
+        if ( is_int($index) ) {
+          if ( $index == 0 ) {
+            $node = $domElement;
+          }
+          else {
+            $node = $this->createElement($domElement->tagName);
+            $domElement->parentNode->appendChild($node);
+          }
         }
         else {
-            $domElement->appendChild($this->createTextNode($mixed));
+          $node = $this->createElement($index);
+          $domElement->appendChild($node);
         }
+        $this->fromMixed($mixedElement, $node);
+      }
     }
+    else {
+      $domElement->appendChild($this->createTextNode($mixed));
+    }
+  }
 }
